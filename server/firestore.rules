@@ -1,0 +1,62 @@
+rules_version = '2';
+
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    match /cubeStats {
+      allow read: if request.auth.uid;
+    }
+
+    match /cube/default {
+      allow read: if request.auth.uid != null;
+    }
+
+    match /sides/{sideId} {
+      allow read: if request.auth.uid != null;
+    }
+
+    match /tiles/{scale}/position/{positionId} {
+      allow read: if request.auth.uid != null;
+    }
+
+    match /tiles/{scale}/position/{positionId} {
+      allow read: if request.auth.uid != null;
+    }
+
+    match /users/{userId} {
+      allow read: if request.auth.uid != null;
+    }
+
+    match /userStats/{userId} {
+      allow read: if request.auth.uid != null;
+    }
+
+    function canMine(data) {
+      return data.keys().hasAll(["uid", "scale", "positionId", 'cordinates', 'layer', 'createdAt', 'timings']) &&
+        data.uid is string &&
+        request.auth.uid == data.uid &&
+        data.scale is int &&
+        data.positionId is string &&
+        data.layer is int &&
+        data.layer == 3 &&
+        data.cordinates is List &&
+        data.timings is List &&
+        data.cordinates.size() == data.timings.size() &&
+        request.time < resource.data.createdAt + duration.value(15, 's') &&
+        request.time > resource.data.createdAt - duration.value(15, 's') &&
+
+        exists(/databases/$(database)/documents/users/$(data.uid)) &&
+        exists(/databases/$(database)/documents/tiles/{data.scale}/position/{data.positionId}) &&
+        get(/databases/$(database)/documents/tiles/{data.scale}/position/{data.positionId}).data.level == data.level &&
+        get(/databases/$(database)/documents/cubeStats).data.level == data.level
+    }
+
+    match /mined/{mineId} {
+      allow create: if request.auth.uid != null && canMine(request.resource.data);
+    }
+  }
+}
